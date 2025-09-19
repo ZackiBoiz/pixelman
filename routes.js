@@ -167,7 +167,7 @@ async function sendLoginWebhook(username) {
   const webhookUrl = process.env.webhookUrl;
 
   const payload = {
-    content: `${username} has logged into pixelit.`
+    content: `**${username}** has logged into Pixelit.`
   };
 
   try {
@@ -200,7 +200,7 @@ async function sendLogoutWebhook(username) {
   const webhookUrl = process.env.webhookUrl;
 
   const payload = {
-    content: `${username} has logged out of pixelit.`
+    content: `**${username}** has logged out of Pixelit.`
   };
 
   try {
@@ -635,8 +635,10 @@ router.post("/spin", async (req, res) => {
 
         const now = Date.now();
 
-        if (user.claimed && now - user.lastSpin < 8 * 3600000) { 
-            return res.status(429).json({ message: "Tokens have already been claimed. Please wait for the next 8 hours to be able to claim your tokens again!" });
+        if (user.claimed && now - user.lastSpin < 8 * 3600000) {
+            return res.status(429).json({
+                message: "Tokens have already been claimed. Please wait for the next 8 hours to be able to claim your tokens again!"
+            });
         }
 
         const tokensWonRandom = [500, 600, 700, 800, 900, 1000][Math.floor(Math.random() * 6)];
@@ -645,9 +647,11 @@ router.post("/spin", async (req, res) => {
             { username: session.username },
             {
                 $inc: { tokens: tokensWonRandom },
-                $set: { claimed: true, lastSpin: now } 
+                $set: { claimed: true, lastSpin: now }
             }
         );
+
+        await sendClaimWebhook(session.username, tokensWonRandom);
 
         res.status(200).json({
             message: "Spin successful",
@@ -657,7 +661,7 @@ router.post("/spin", async (req, res) => {
         setTimeout(async () => {
             await usersCollection.updateOne(
                 { username: session.username },
-                { $set: { claimed: false } } 
+                { $set: { claimed: false } }
             );
         }, 8 * 3600000);
 
@@ -666,6 +670,27 @@ router.post("/spin", async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 });
+
+async function sendClaimWebhook(username, tokensWon) {
+    const webhookUrl = process.env.webhookUrl;
+
+    const payload = {
+        content: `**${username}** has claimed **${tokensWon} tokens** in Pixelit!`
+    };
+
+    try {
+        await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+    } catch (error) {
+        console.error('Error sending Discord webhook:', error);
+    }
+}
+
 
 const app = express();
 
@@ -779,6 +804,7 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
             if (!person || !pack) {
                 return res.status(404).json({ error: "User or pack not found" });
             }
+
             if (person.tokens < pack.cost) {
                 return res.status(400).json({ error: "Not enough tokens" });
             }
@@ -822,8 +848,13 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
                     ]
                 }
             );
+
+            await sendPackWebhook(user.name, pack.name, selectedBlook.name);
+
             res.status(200).json({ pack: pack.name, blook: selectedBlook });
+
             console.log(`${user.name} opened ${pack.name} and got ${selectedBlook.name}`);
+
         } catch (error) {
             console.error("Error opening pack:", error);
             res.status(500).json({ error: "Internal server error" });
@@ -832,6 +863,28 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
         res.status(401).json({ error: "Unauthorized" });
     }
 });
+
+
+async function sendPackWebhook(username, packName, blookName) {
+    const packWebhookUrl = process.env.packWebhookUrl;
+
+    const payload = {
+        content: `**${username}** opened a **${packName}** pack and got **${blookName}**!`
+    };
+
+    try {
+        await fetch(packWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+    } catch (error) {
+        console.error("Error sending pack webhook:", error);
+    }
+}
+
 
 router.post("/muteBanUser", async (req, res) => {
     try {
