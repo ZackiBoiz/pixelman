@@ -1,4 +1,4 @@
 export const VERSION = {
-  number: '2.2.7',
+  number: '2.3.0',
   isBeta: false
 };

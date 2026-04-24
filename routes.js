@@ -81,6 +81,7 @@ const users = db.collection("users");
 const badges = db.collection("badges");
 const chatm = db.collection("chat");
 const packs = db.collection("packs");
+const audits = db.collection('audits');
 
 async function hashPassword(password) {
   const saltRounds = 10;
@@ -1319,6 +1320,7 @@ router.post('/storeWebhook', bodyParser.raw({ type: 'application/json' }), async
   }
   res.json({ received: true });
 });
+
 
 router.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, 'public', 'site', '404.html'));
