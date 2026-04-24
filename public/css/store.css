@@ -148,7 +148,7 @@ body {
 }
 
 .body-bg-color { 
-  background-color: #6d0180; 
+  background: linear-gradient(to right, #165B33, #055032);
 }
 
 .store-item {

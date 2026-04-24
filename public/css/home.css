@@ -27,10 +27,10 @@ body {
 
 .navbar {
   overflow: hidden;
-  background-color: #6f057a;
+  background: linear-gradient(45deg, #b30000, #fa3d3d);
+  box-shadow: inset 0 -0.365vw #8e0000, 3px 3px 15px rgba(0,0,0,0.6);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  box-shadow: inset 0 -0.365vw #61056b, 3px 3px 15px rgba(0, 0, 0, 0.6)
 }
 
 @media screen and (max-width: 600px) {
@@ -147,8 +147,8 @@ body {
   }
 }
 
-.body-bg-color { 
-  background-color: #6d0180; 
+.body-bg-color {
+  background: linear-gradient(to right, #165B33, #055032);
 }
 
 .title-text { 
@@ -352,4 +352,26 @@ body {
   box-shadow: inset 0 -0.365vw #61056b, 3px 3px 15px rgba(0, 0, 0, 0.6);
   transition: background-color 0.3s, transform 0.2s;
   font-family: Pixelify Sans;
+}
+
+/* --- snow animation --- */
+.snow {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    url('https://i.imgur.com/M6yQ3Z8.png'),
+    url('https://i.imgur.com/Q9o7x5C.png'),
+    url('https://i.imgur.com/w1XoP1p.png');
+  background-repeat: repeat;
+  animation: snow 15s linear infinite;
+  z-index: 9999;
+}
+
+@keyframes snow {
+  0%   { background-position: 0px 0px, 0px 0px, 0px 0px; }
+  100% { background-position: 0px 1000px, 0px 700px, 0px 400px; }
 }
