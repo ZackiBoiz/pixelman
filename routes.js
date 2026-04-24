@@ -1353,4 +1353,28 @@ router.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, 'public', 'site', '404.html'));
 });
 
+router.post('/getUserStats', async (req, res) => {
+  if (!req.session || !req.session.loggedIn) {
+    return res.status(401).json({ success: false, message: 'You must be logged in.' });
+  }
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ success: false, message: 'Username is required.' });
+  }
+  const user = await users.findOne({ username });
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found.' });
+  }
+  
+  const userStats = {
+    username: user.username,
+    pfp: user.pfp,
+    role: user.role,
+    tokens: user.tokens,
+    stats: user.stats,
+    badges: user.badges
+  };
+  res.json({ success: true, user: userStats });
+});
+
 module.exports = router;
