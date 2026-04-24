@@ -131,12 +131,15 @@ router.post("/login", async (req, res) => {
     const pass = req.body.password;
     const user = await collection.findOne({ username: name });
 
+    if (!user) {
+      return res.status(401).send("User not found!");
+    }
+
     if (user.banned){
       return res.status(403).send(`Your account is currently banned. Reason: ${user.banReason || "No reason provided."}`);
     }
 
-    if (user) {
-      if (await validatePassword(pass, user.password)) {
+    if (await validatePassword(pass, user.password)) {
         req.session.loggedIn = true;
         req.session.username = user.username;
         req.session.tokens = user.tokens;
@@ -154,9 +157,6 @@ router.post("/login", async (req, res) => {
       } else {
         res.status(401).send("Username or Password is incorrect!");
       }
-    } else {
-      res.status(401).send("User not found!");
-    }
   } catch (err) {
     console.error(err);
     res.status(500).send("Server error!");
@@ -167,7 +167,7 @@ async function sendLoginWebhook(username) {
   const webhookUrl = process.env.webhookUrl;
 
   const payload = {
-    content: `**${username}** has logged into Pixelit.`
+    content: `${username} has logged into pixelit.`
   };
 
   try {
@@ -200,7 +200,7 @@ async function sendLogoutWebhook(username) {
   const webhookUrl = process.env.webhookUrl;
 
   const payload = {
-    content: `**${username}** has logged out of Pixelit.`
+    content: `${username} has logged out of pixelit.`
   };
 
   try {
@@ -635,10 +635,8 @@ router.post("/spin", async (req, res) => {
 
         const now = Date.now();
 
-        if (user.claimed && now - user.lastSpin < 8 * 3600000) {
-            return res.status(429).json({
-                message: "Tokens have already been claimed. Please wait for the next 8 hours to be able to claim your tokens again!"
-            });
+        if (user.claimed && now - user.lastSpin < 8 * 3600000) { 
+            return res.status(429).json({ message: "Tokens have already been claimed. Please wait for the next 8 hours to be able to claim your tokens again!" });
         }
 
         const tokensWonRandom = [500, 600, 700, 800, 900, 1000][Math.floor(Math.random() * 6)];
@@ -647,11 +645,9 @@ router.post("/spin", async (req, res) => {
             { username: session.username },
             {
                 $inc: { tokens: tokensWonRandom },
-                $set: { claimed: true, lastSpin: now }
+                $set: { claimed: true, lastSpin: now } 
             }
         );
-
-        await sendClaimWebhook(session.username, tokensWonRandom);
 
         res.status(200).json({
             message: "Spin successful",
@@ -661,7 +657,7 @@ router.post("/spin", async (req, res) => {
         setTimeout(async () => {
             await usersCollection.updateOne(
                 { username: session.username },
-                { $set: { claimed: false } }
+                { $set: { claimed: false } } 
             );
         }, 8 * 3600000);
 
@@ -670,27 +666,6 @@ router.post("/spin", async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 });
-
-async function sendClaimWebhook(username, tokensWon) {
-    const webhookUrl = process.env.webhookUrl;
-
-    const payload = {
-        content: `**${username}** has claimed **${tokensWon} tokens** in Pixelit!`
-    };
-
-    try {
-        await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
-    } catch (error) {
-        console.error('Error sending Discord webhook:', error);
-    }
-}
-
 
 const app = express();
 
@@ -804,7 +779,6 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
             if (!person || !pack) {
                 return res.status(404).json({ error: "User or pack not found" });
             }
-
             if (person.tokens < pack.cost) {
                 return res.status(400).json({ error: "Not enough tokens" });
             }
@@ -848,13 +822,8 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
                     ]
                 }
             );
-
-            await sendPackWebhook(user.name, pack.name, selectedBlook.name);
-
             res.status(200).json({ pack: pack.name, blook: selectedBlook });
-
             console.log(`${user.name} opened ${pack.name} and got ${selectedBlook.name}`);
-
         } catch (error) {
             console.error("Error opening pack:", error);
             res.status(500).json({ error: "Internal server error" });
@@ -863,28 +832,6 @@ router.get("/openPack", packOpenLimiter, async (req, res) => {
         res.status(401).json({ error: "Unauthorized" });
     }
 });
-
-
-async function sendPackWebhook(username, packName, blookName) {
-    const packWebhookUrl = process.env.packWebhookUrl;
-
-    const payload = {
-        content: `**${username}** opened a **${packName}** pack and got **${blookName}**!`
-    };
-
-    try {
-        await fetch(packWebhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
-    } catch (error) {
-        console.error("Error sending pack webhook:", error);
-    }
-}
-
 
 router.post("/muteBanUser", async (req, res) => {
     try {
@@ -1295,6 +1242,30 @@ router.get("/getNotifications", async (req, res) => {
   res.json({ success: true, notifications: user.notifications || [] });
 });
 
+router.post('/getUserStats', async (req, res) => {
+  if (!req.session || !req.session.loggedIn) {
+    return res.status(401).json({ success: false, message: 'You must be logged in.' });
+  }
+  const { username } = req.body;
+  if (!username) {
+    return res.status(400).json({ success: false, message: 'Username is required.' });
+  }
+  const user = await users.findOne({ username });
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found.' });
+  }
+  
+  const userStats = {
+    username: user.username,
+    pfp: user.pfp,
+    role: user.role,
+    tokens: user.tokens,
+    stats: user.stats,
+    badges: user.badges
+  };
+  res.json({ success: true, user: userStats });
+});
+
 router.post('/storeCheckout', async (req, res) => {
   if (!req.session || !req.session.username) {
     return res.status(401).json({ error: 'You must be logged in.' });
@@ -1351,30 +1322,6 @@ router.post('/storeWebhook', bodyParser.raw({ type: 'application/json' }), async
 
 router.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, 'public', 'site', '404.html'));
-});
-
-router.post('/getUserStats', async (req, res) => {
-  if (!req.session || !req.session.loggedIn) {
-    return res.status(401).json({ success: false, message: 'You must be logged in.' });
-  }
-  const { username } = req.body;
-  if (!username) {
-    return res.status(400).json({ success: false, message: 'Username is required.' });
-  }
-  const user = await users.findOne({ username });
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'User not found.' });
-  }
-  
-  const userStats = {
-    username: user.username,
-    pfp: user.pfp,
-    role: user.role,
-    tokens: user.tokens,
-    stats: user.stats,
-    badges: user.badges
-  };
-  res.json({ success: true, user: userStats });
 });
 
 module.exports = router;
